@@ -10,6 +10,7 @@ from PIL import ImageTk as PIL_ImageTK
 from PIL import Image as PIL_Image
 from shutil import copyfile
 import ptpy as pt
+import urllib.request
 
 gui_width = 995
 gui_height = 640
@@ -18,35 +19,30 @@ data_save_folder = data_save_path.absolute()
 
 
 def download_photo(camera, handle, img):
-    # Download all things that are not groups of other things.
+    print('downloading ', img)  # Download all things that are not groups of other things.
     obj = camera.get_object(handle)
     with open(img, mode='wb') as f:
         f.write(obj.Data)
 
 
-def get_photos():
+def get_photos():  # TODO check where files get downloaded
     global handle, info
+    folder = ''
     try:
         camera = pt.PTPy()
     except pt.ptp.PTPError:
         return
 
     with camera.session():
-        handles = camera.get_object_handles(0,
-                                            all_storage_ids=True,
-                                            all_formats=True,
-                                            )
+        handles = camera.get_object_handles(0, all_storage_ids=True, all_formats=True, )
         parent_objs = []
-        folder = ''
         i = 100
         root = os.path.join('G:', 'Imports')
 
-        for handle in handles:  # #####TODO ONLY DOWNLOAD FROM SD CARD ##################
+        for handle in handles:
             info = camera.get_object_info(handle)
             parent_obj = info.ParentObject
-            # print(parent_obj)
-            if str(parent_obj)[0] == '3' and parent_obj not in parent_objs:
-                # print(parent_obj)
+            if str(parent_obj)[0] == '3' and parent_obj not in parent_objs:  #
                 parent_objs.append(parent_obj)
                 while True:
                     folder = '{:3}ND800'.format(i)
@@ -56,15 +52,20 @@ def get_photos():
                     except FileExistsError:
                         i += 1
                 i += 1
-                if info.ObjectFormat != 'Association':
-                    # print(os.path.join(root, folder, info.Filename))
-                    download_photo(camera=camera,
-                                   handle=handle,
-                                   img=os.path.join(root, folder, info.Filename)
-                                   )
+            if info.ObjectFormat != 'Association':
+                # noinspection PyTypeChecker
+                download_photo(camera=camera,
+                               handle=handle,
+                               img=os.path.join(root, folder, info.Filename)
+                               )
 
 
 def clear_frame(frm):
+    """
+    destroys all non button widgets from a tkinter frame
+    :param frm: tk inter frame object
+    :return: none
+    """
     for widget in frm.winfo_children():
         if widget.winfo_class() != 'TButton':
             widget.destroy()
@@ -73,12 +74,13 @@ def clear_frame(frm):
 
 def btn_select_photos_clicked(frm, label, import_btn, rename_combo, rename_text):
     global thumb_list
-    data_folders = find_folder()
-    fld = data_folders[0]  # root folder
-    thumb_list = filedialog.askopenfilenames(initialdir=Path(fld).parent, title='Select photos for import...')
+    label.set('Connecting to photo storage location. Please wait...')
+    frm.update()
+    fld = find_folder()
+    thumb_list = filedialog.askopenfilenames(initialdir=fld, title='Select photos for import...')
     label.set(fld)  # TODO make sure all \ point the same way
     try:
-        update_rename_example(rename_combo.current(), rename_text, thumb_list[0])
+        update_rename_example_text(rename_combo.current(), rename_text, thumb_list[0])
     except IndexError:
         pass
     populate_thumb_frame(thumbnail_list=thumb_list, frm=frm, width=5)
@@ -87,24 +89,27 @@ def btn_select_photos_clicked(frm, label, import_btn, rename_combo, rename_text)
     return thumb_list
 
 
-def btn_import_clicked(files, destination, frm, rename):
-    for i, src in enumerate(files):
+def btn_import_clicked(files, destination, frm, rename_style):  # todo add label saying import in progress
+    for index, src in enumerate(files):
         src = Path(src)
-        dst = os.path.join(destination, src.name)
-        dst = rename_file(Path(dst), rename, i)
+        dst = rename_file(Path(os.path.join(destination, src.name)), rename_style, index)
         copyfile(src, dst)  # TODO add option to overwrite if folder not empty
     tk.messagebox.showinfo('Photo import', 'Photos imported to {}'.format(dst.parent), icon='info', parent=frm)
     clear_frame(frm)
 
 
-def btn_add_dest_clicked(root, save_folders, frm):
+def btn_add_dest_clicked(root, destination_folders, frm):
     new_destination = Path(filedialog.askdirectory(initialdir=Path(root), title='Add a destination...'))
-    save_folders.append(new_destination)
+    destination_folders.append(new_destination)
     radio = tk.Radiobutton(frm, text=new_destination.name,
                            value=new_destination,
                            variable=destination)
     radio.grid(sticky='w', padx=5, pady=5)
     radio.select()
+
+
+def btn_cancel_clicked(gui):
+    gui.destroy()
 
 
 def populate_destination_win(folder_list, frm):
@@ -155,13 +160,13 @@ def populate_thumb_frame(thumbnail_list, frm, width):
         frm.update_idletasks()
 
 
-def find_folder(search_folder='G:/Imports', file_types=('jpg', 'nef')):  # TODO don't I only need first folder?
-    folder_paths = []
-    for root, dirs, files in os.walk(search_folder):
-        folder_paths += (root for file in files if
-                         root not in folder_paths and
-                         file[-3:].lower() in file_types)
-    return folder_paths
+def find_folder(wi_fi_test='http://flashair/DCIM/100__TSB/FA000001.JPG', wifi_folder='//flashair/DCIM',
+                usb_folder='G:\\Imports'):
+    try:
+        urllib.request.urlretrieve(wi_fi_test)
+        return wifi_folder
+    except urllib.request.URLError:
+        return usb_folder
 
 
 def rename_file(file, rename, i):
@@ -174,11 +179,7 @@ def rename_file(file, rename, i):
     return file
 
 
-def cancel_clicked(gui):
-    gui.destroy()
-
-
-def widget_grid(btn_add_dest, btn_cancel, btn_get_photos, btn_import, example_label, rename_combobox, source_label):
+def grid_widgets(btn_add_dest, btn_cancel, btn_get_photos, btn_import, example_label, rename_combobox, source_label):
     btn_get_photos.grid(column=0,
                         row=0,
                         padx=5,
@@ -223,20 +224,6 @@ def widget_grid(btn_add_dest, btn_cancel, btn_get_photos, btn_import, example_la
                       )
 
 
-def config_resize(canvas, container_frame, dest_frame, root):
-    root.grid_columnconfigure(0, weight=1)
-    root.grid_rowconfigure(0, weight=1)
-    container_frame.columnconfigure(0, weight=1)
-    container_frame.columnconfigure(1, weight=0)
-    container_frame.rowconfigure(0, weight=0)
-    container_frame.rowconfigure(1, weight=1)
-    container_frame.rowconfigure(2, weight=0)
-    dest_frame.grid_columnconfigure(0, weight=1)
-    dest_frame.grid_rowconfigure(0, weight=1)
-    canvas.grid_columnconfigure(0, weight=1)
-    canvas.grid_rowconfigure(0, weight=1)
-
-
 def grid_frames(canvas, container_frame, dest_frame, import_frame, source_frame, thumb_frame):
     container_frame.grid(column=0,  # child of root
                          row=0,
@@ -274,6 +261,20 @@ def grid_frames(canvas, container_frame, dest_frame, import_frame, source_frame,
                       )
 
 
+def config_resize(canvas, container_frame, dest_frame, root):
+    root.grid_columnconfigure(0, weight=1)
+    root.grid_rowconfigure(0, weight=1)
+    container_frame.columnconfigure(0, weight=1)
+    container_frame.columnconfigure(1, weight=0)
+    container_frame.rowconfigure(0, weight=0)
+    container_frame.rowconfigure(1, weight=1)
+    container_frame.rowconfigure(2, weight=0)
+    dest_frame.grid_columnconfigure(0, weight=1)
+    dest_frame.grid_rowconfigure(0, weight=1)
+    canvas.grid_columnconfigure(0, weight=1)
+    canvas.grid_rowconfigure(0, weight=1)
+
+
 def setup_gui_frames(root):
     container_frame = tk.Frame(master=root,  # empty containing frame
                                padx=10,
@@ -295,7 +296,7 @@ def setup_gui_frames(root):
     return canvas, container_frame, dest_frame, import_frame, source_frame, thumb_frame
 
 
-def update_rename_example(value, label, example):
+def update_rename_example_text(value, label, example):
     opts = ['', ' 01', '001', ' 00', '000']
     if value == 0:
         label.set('Example: {}'.format(Path(example).name))
@@ -304,19 +305,19 @@ def update_rename_example(value, label, example):
 
 
 def create_gui():
-    # set up gui container
+    # set up gui container----------------------------------------------------------------------------------------------
     root = tk.Tk()
     root.title('PyGrab - Camera photo grabber')
     root.geometry('{}x{}'.format(gui_width, gui_height))
     global destination
     destination = tk.StringVar()
 
-    # set up gui frames-----------------------------------------------------------------------------
+    # set up gui frames-------------------------------------------------------------------------------------------------
     canvas, container_frame, dest_frame, import_frame, source_frame, thumb_frame = setup_gui_frames(root)
 
-    # set up source frame widgets----------------------------------------------------------------------------
+    # set up source frame widgets---------------------------------------------------------------------------------------
     source_text = tk.StringVar()
-    source_text.set('G:/Imports')
+    source_text.set('Choose folder for import')
     source_label = tk.Label(source_frame,
                             textvariable=source_text,
                             justify='left',
@@ -330,35 +331,26 @@ def create_gui():
                                    )
 
     # set up destination frame widgets----------------------------------------------------------------------------------
-    all_folders = (os.listdir(data_save_path.absolute()))
-    save_folders = []
-    for folder in all_folders:
-        if folder.startswith('1000') or folder.startswith('HSS'):
-            save_folders.append(folder)
-    save_folder = populate_destination_win(save_folders, dest_frame)
+    destination_folders = [folder
+                           for folder in os.listdir(data_save_path.absolute())
+                           if folder.startswith('1000') or folder.startswith('HSS')
+                           ]
+    destination_folder = populate_destination_win(destination_folders, dest_frame)
     btn_add_dest = ttk.Button(dest_frame,
                               text="Add...",
                               command=
-                              lambda: btn_add_dest_clicked(data_save_path, save_folders, dest_frame)
+                              lambda: btn_add_dest_clicked(data_save_path, destination_folders, dest_frame)
                               )
 
     # set up import frame widgets---------------------------------------------------------------------------------------
     btn_cancel = ttk.Button(import_frame,
                             text="Cancel",
-                            command=lambda: cancel_clicked(root)
+                            command=lambda: btn_cancel_clicked(root)
                             )
-    rename_example_text = tk.StringVar()
-    rename_example_text.set('Example:')
-    rename_example_label = tk.Label(import_frame,
-                                    textvariable=rename_example_text,
-                                    justify='left',
-                                    anchor='nw',
-                                    )
-
     btn_import = ttk.Button(import_frame,
                             state='disabled',
                             text="Import",
-                            command=lambda: btn_import_clicked(thumb_list, save_folder.get(), thumb_frame,
+                            command=lambda: btn_import_clicked(thumb_list, destination_folder.get(), thumb_frame,
                                                                rename_combobox.current())
                             )
     rename_combobox = tk.ttk.Combobox(import_frame,
@@ -374,16 +366,42 @@ def create_gui():
                                       )
     rename_combobox.current(1)
     rename_combobox.bind('<<ComboboxSelected>>',
-                         lambda _: update_rename_example(rename_combobox.current(), rename_example_text, thumb_list[0])
+                         lambda _: update_rename_example_text(rename_combobox.current(), rename_example_text,
+                                                              thumb_list[0])
                          )
 
+    # set up example rename text
+    rename_example_text = tk.StringVar()
+    rename_example_text.set('Example:')
+    rename_example_label = tk.Label(import_frame,
+                                    textvariable=rename_example_text,
+                                    justify='left',
+                                    anchor='nw',
+                                    )
+
     # grid and configure the frames-------------------------------------------------------------------------------------
-    grid_frames(canvas, container_frame, dest_frame, import_frame, source_frame, thumb_frame)
-    config_resize(canvas, container_frame, dest_frame, root)
+    grid_frames(canvas,
+                container_frame,
+                dest_frame,
+                import_frame,
+                source_frame,
+                thumb_frame
+                )
+    config_resize(canvas,
+                  container_frame,
+                  dest_frame,
+                  root
+                  )
 
     # grid the widgets into their frames--------------------------------------------------------------------------------
-    widget_grid(btn_add_dest, btn_cancel, btn_select_photos, btn_import, rename_example_label, rename_combobox,
-                source_label)
+    grid_widgets(btn_add_dest,
+                 btn_cancel,
+                 btn_select_photos,
+                 btn_import,
+                 rename_example_label,
+                 rename_combobox,
+                 source_label
+                 )
 
     # initialise the gui------------------------------------------------------------------------------------------------
     root.mainloop()
@@ -392,55 +410,3 @@ def create_gui():
 if __name__ == '__main__':
     get_photos()
     create_gui()
-
-
-def set_colours(base_colour):
-    """
-    Returns a dict of colours {name(str): value(str)} either brighter or darker than base_colour for use in a gui
-     :param base_colour: string representing hex number "#xxxxxx"
-    :return: dict of colour options as strings "#xxxxxx"
-    """
-
-    colour_set = {
-        "bg"                  : 0,
-        "text"                : 0x797979,
-
-        "checkbox_text"       : 0x797979,
-        "checkbox_bold_text"  : 0xa9a9a9,
-        "checkbox_bg"         : 0x272727,
-
-        "input_text"          : -0x3e3e3e,
-        "input_bg"            : 0x797979,
-
-        "btn_text"            : 0x797979,
-        "btn_bg"              : -0x242424,
-        "btn_activebackground": -0x3e3e3e
-    }
-    base_colour = int(base_colour.strip("#"), 16)
-    colours = {colour: "#{:06x}".format(min(max(base_colour + offset, 0), 0Xffffff)) for colour, offset in
-               colour_set.items()}
-
-    return colours
-
-
-def find_drive_folders(search_drive='D800', file_types=('jpg', 'nef')):
-    """
-    walks through logical drive or path that partially matches search_drive and returns all folders
-    containing file_types
-    :param search_drive: string
-    :param file_types: tuple
-    :return: folder_paths a list of folders containing files of type(s) file_types
-    """
-    folder_paths = []
-    drives = ['{}:'.format(d) for d in string.ascii_uppercase if os.path.exists('{}:'.format(d))]
-    for drive in drives:
-        cam_drive = win32api.GetVolumeInformation(str(Path(drive + '/')))
-        if search_drive in cam_drive[0]:  # cam_drive[0] is name of drive
-            for root, dirs, files in os.walk(drive):
-                folder_paths += (root for file in files if
-                                 root not in folder_paths and
-                                 'RECYCLE' not in root and
-                                 file[-3:].lower() in file_types)
-            break
-    print(folder_paths)
-    return folder_paths
