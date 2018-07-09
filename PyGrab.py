@@ -32,31 +32,36 @@ def get_photos():
         return
 
     with camera.session():
-        handles = camera.get_object_handles(
-            0,
-            all_storage_ids=True,
-            all_formats=True,
-        )
+        handles = camera.get_object_handles(0,
+                                            all_storage_ids=True,
+                                            all_formats=True,
+                                            )
         parent_objs = []
         folder = ''
         i = 100
         root = os.path.join('G:', 'Imports')
-        print(root)
-        input()
 
-        for handle in handles:
+        for handle in handles:  # #####TODO ONLY DOWNLOAD FROM SD CARD ##################
             info = camera.get_object_info(handle)
             parent_obj = info.ParentObject
-            if parent_obj not in parent_objs:
+            # print(parent_obj)
+            if str(parent_obj)[0] == '3' and parent_obj not in parent_objs:
+                # print(parent_obj)
                 parent_objs.append(parent_obj)
-                folder = '{:3}ND800'.format(i)
-                os.mkdir(os.path.join(root, folder))
+                while True:
+                    folder = '{:3}ND800'.format(i)
+                    try:
+                        os.mkdir(os.path.join(root, folder))
+                        break
+                    except FileExistsError:
+                        i += 1
                 i += 1
-            if info.ObjectFormat != 'Association':
-                download_photo(camera=camera,
-                               handle=handle,
-                               img=os.path.join(root, folder, info.Filename)
-                               )
+                if info.ObjectFormat != 'Association':
+                    # print(os.path.join(root, folder, info.Filename))
+                    download_photo(camera=camera,
+                                   handle=handle,
+                                   img=os.path.join(root, folder, info.Filename)
+                                   )
 
 
 def clear_frame(frm):
@@ -68,11 +73,14 @@ def clear_frame(frm):
 
 def btn_select_photos_clicked(frm, label, import_btn, rename_combo, rename_text):
     global thumb_list
-    data_folder = find_folders()
-    fld = data_folder[0]  # root folder
+    data_folders = find_folder()
+    fld = data_folders[0]  # root folder
     thumb_list = filedialog.askopenfilenames(initialdir=Path(fld).parent, title='Select photos for import...')
-    label.set(fld)
-    update_rename_example(rename_combo.current(), rename_text, thumb_list[0])
+    label.set(fld)  # TODO make sure all \ point the same way
+    try:
+        update_rename_example(rename_combo.current(), rename_text, thumb_list[0])
+    except IndexError:
+        pass
     populate_thumb_frame(thumbnail_list=thumb_list, frm=frm, width=5)
     import_btn.state(['!disabled'])
     rename_combo.state(['!disabled', 'readonly'])
@@ -80,22 +88,23 @@ def btn_select_photos_clicked(frm, label, import_btn, rename_combo, rename_text)
 
 
 def btn_import_clicked(files, destination, frm, rename):
-    print('destination')
-    print(destination)
-    # for i, src in enumerate(files):
-    #     src = Path(src)
-    #     dst = os.path.join(destination, src.name)
-    #     dst = rename_file(Path(dst), rename, i)
-    #     copyfile(src, dst)  # TODO add option to overwrite if folder not empty
-    # tk.messagebox.showinfo('Photo import', 'Photos imported to {}'.format(dst.parent), icon='info', parent=frm)
-    # clear_frame(frm)
+    for i, src in enumerate(files):
+        src = Path(src)
+        dst = os.path.join(destination, src.name)
+        dst = rename_file(Path(dst), rename, i)
+        copyfile(src, dst)  # TODO add option to overwrite if folder not empty
+    tk.messagebox.showinfo('Photo import', 'Photos imported to {}'.format(dst.parent), icon='info', parent=frm)
+    clear_frame(frm)
 
 
-def btn_add_dest_clicked(root, save_folder, save_folders, frm):
-    print(save_folder)
-    new_destination = Path(filedialog.askdirectory(initialdir=Path(root), title='Add a destination...')).name
+def btn_add_dest_clicked(root, save_folders, frm):
+    new_destination = Path(filedialog.askdirectory(initialdir=Path(root), title='Add a destination...'))
     save_folders.append(new_destination)
-    save_folder = populate_destination_win(save_folders, frm)
+    radio = tk.Radiobutton(frm, text=new_destination.name,
+                           value=new_destination,
+                           variable=destination)
+    radio.grid(sticky='w', padx=5, pady=5)
+    radio.select()
 
 
 def populate_destination_win(folder_list, frm):
@@ -106,7 +115,7 @@ def populate_destination_win(folder_list, frm):
     :return: first radio button
     """
     clear_frame(frm)
-    destination = tk.StringVar()
+
     for i, file in enumerate(folder_list):
         filename = Path(data_save_path, file)
 
@@ -146,7 +155,7 @@ def populate_thumb_frame(thumbnail_list, frm, width):
         frm.update_idletasks()
 
 
-def find_folders(search_folder='G:\Imports', file_types=('jpg', 'nef')):
+def find_folder(search_folder='G:/Imports', file_types=('jpg', 'nef')):  # TODO don't I only need first folder?
     folder_paths = []
     for root, dirs, files in os.walk(search_folder):
         folder_paths += (root for file in files if
@@ -299,13 +308,15 @@ def create_gui():
     root = tk.Tk()
     root.title('PyGrab - Camera photo grabber')
     root.geometry('{}x{}'.format(gui_width, gui_height))
+    global destination
+    destination = tk.StringVar()
 
     # set up gui frames-----------------------------------------------------------------------------
     canvas, container_frame, dest_frame, import_frame, source_frame, thumb_frame = setup_gui_frames(root)
 
     # set up source frame widgets----------------------------------------------------------------------------
     source_text = tk.StringVar()
-    source_text.set('D800')
+    source_text.set('G:/Imports')
     source_label = tk.Label(source_frame,
                             textvariable=source_text,
                             justify='left',
@@ -325,12 +336,10 @@ def create_gui():
         if folder.startswith('1000') or folder.startswith('HSS'):
             save_folders.append(folder)
     save_folder = populate_destination_win(save_folders, dest_frame)
-    print(save_folder)
-
     btn_add_dest = ttk.Button(dest_frame,
                               text="Add...",
                               command=
-                              lambda: btn_add_dest_clicked(data_save_path, save_folder, save_folders, dest_frame)
+                              lambda: btn_add_dest_clicked(data_save_path, save_folders, dest_frame)
                               )
 
     # set up import frame widgets---------------------------------------------------------------------------------------
