@@ -19,45 +19,68 @@ data_save_folder = data_save_path.absolute()
 
 
 def download_photo(camera, handle, img):
-    print('downloading ', img)  # Download all things that are not groups of other things.
     obj = camera.get_object(handle)
     with open(img, mode='wb') as f:
         f.write(obj.Data)
 
 
-def get_photos():  # TODO check where files get downloaded
-    global handle, info
+def get_photos():
+    """
+    Downloads photos on sd card in nikon D800
+
+    :return:
+    """
+    root = tk.Tk()  # TODO put this in the main gui just call it with a refresh until I'm ready to mainloop it
+    root.title('PyGrab - Camera photo grabber')
+    root.geometry('{}x{}'.format(gui_width, gui_height))
+    label = ttk.Label(root, text="Downloading photos please wait...", anchor=tk.CENTER)
+    label.grid(sticky='news')
+    root.update()
+
     folder = ''
+    sd = 300000000  # use sd = 200000000 if only sd card in camera (Careful NOT tested)
     try:
         camera = pt.PTPy()
-    except pt.ptp.PTPError:
+    except pt.ptp.PTPError:  # camera not connected
         return
 
     with camera.session():
         handles = camera.get_object_handles(0, all_storage_ids=True, all_formats=True, )
-        parent_objs = []
+        parent_objs = []  # a list of sd card folder ids
         i = 100
-        root = os.path.join('G:', 'Imports')
+        import_folder = os.path.join('G:', 'Imports')
 
+        # loop through the list of photos on the sd card downloading as necessary
         for handle in handles:
             info = camera.get_object_info(handle)
+            #print(info)
             parent_obj = info.ParentObject
-            if str(parent_obj)[0] == '3' and parent_obj not in parent_objs:  #
-                parent_objs.append(parent_obj)
-                while True:
-                    folder = '{:3}ND800'.format(i)
-                    try:
-                        os.mkdir(os.path.join(root, folder))
-                        break
-                    except FileExistsError:
-                        i += 1
-                i += 1
-            if info.ObjectFormat != 'Association':
-                # noinspection PyTypeChecker
+            if not (parent_obj // sd):  # sd card ParentObjects are in format 3########
+                pass
+            else:
+
+                # map sd card folder structure to import folder
+                if parent_obj not in parent_objs:  # is this a new sd folder
+
+                    # add the folder id  to list of folder ids
+                    parent_objs.append(parent_obj)
+
+                    # create the local folder mapped from the sd folder
+                    while True:
+                        folder = '{:3}ND800'.format(i)
+                        try:
+                            os.mkdir(os.path.join(import_folder, folder))
+                            i += 1  # increment the folder name ready for the next one
+                            break
+                        except FileExistsError:  # that folder already exists so increment the name and try again
+                            i += 1
+
+                #  download the photo
                 download_photo(camera=camera,
                                handle=handle,
-                               img=os.path.join(root, folder, info.Filename)
+                               img=os.path.join(import_folder, folder, info.Filename)
                                )
+    root.destroy()
 
 
 def clear_frame(frm):
@@ -75,17 +98,20 @@ def clear_frame(frm):
 def btn_select_photos_clicked(frm, label, import_btn, rename_combo, rename_text):
     global thumb_list
     label.set('Connecting to photo storage location. Please wait...')
-    frm.update()
+    frm.update_idletasks()
     fld = find_folder()
     thumb_list = filedialog.askopenfilenames(initialdir=fld, title='Select photos for import...')
-    label.set(fld)  # TODO make sure all \ point the same way
     try:
         update_rename_example_text(rename_combo.current(), rename_text, thumb_list[0])
     except IndexError:
         pass
+    label.set('Displaying thumbnails. Please wait...')
+    frm.update_idletasks()
     populate_thumb_frame(thumbnail_list=thumb_list, frm=frm, width=5)
     import_btn.state(['!disabled'])
     rename_combo.state(['!disabled', 'readonly'])
+    label.set(fld)  # TODO make sure all \ point the same way
+    frm.update_idletasks()
     return thumb_list
 
 
@@ -161,7 +187,7 @@ def populate_thumb_frame(thumbnail_list, frm, width):
 
 
 def find_folder(wi_fi_test='http://flashair/DCIM/100__TSB/FA000001.JPG', wifi_folder='//flashair/DCIM',
-                usb_folder='G:\\Imports'):
+                usb_folder='G:/Imports'):
     try:
         urllib.request.urlretrieve(wi_fi_test)
         return wifi_folder
