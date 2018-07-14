@@ -25,7 +25,7 @@ def ok_clicked():
     while 1:
         time.sleep(1)
         try:
-            _ = browser.find_element_by_tag_name("body")
+            _ = browser.find_element_by_tag_name("body")  # check if browser exists
         except:
             sys.exit()
 

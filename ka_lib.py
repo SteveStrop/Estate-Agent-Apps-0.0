@@ -47,14 +47,13 @@ def open_jobs_list():
     browser = webdriver.Chrome(chrome_driver_path)
 
     logon(
-        username="steve@orella.co.uk",
-        password='Floop001',
-        login_pg="https://www.keyagent-portal.co.uk",
-        landing_pg="https://www.keyagent-portal.co.uk/Site/Dea/"
-                   "home.aspx?Dea=272ca14b-8535-453f-bf30-10e5c0318651&TAB=MYHOME",
-        username_field="ctl00$main$HipPlatformLogin$Username",
-        password_field="ctl00$main$HipPlatformLogin$Password",
-        login_btn="ctl00$main$HipPlatformLogin$Button1",
+        username="xxxxxxxxxxxxxxxx",
+        password='xxxxxxxxxxxxxxxx',
+        login_pg="xxxxxxxxxxxxxxxxxxx",
+        landing_pg="xxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        username_field="xxxxxxxxxxxxxxxxxxxx",
+        password_field="xxxxxxxxxxxxxxxxxxxx",
+        login_btn="xxxxxxxxxxxxxxxxxxxxxxx",
         browser=browser
     )
 

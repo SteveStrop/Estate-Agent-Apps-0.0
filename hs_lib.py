@@ -25,13 +25,13 @@ def open_jobs_list():
     browser = webdriver.Chrome(chrome_driver_path)
 
     logon(
-        username="steve@orella.co.uk",
-        password="Floop001",
-        login_pg="https://www.housesimple.com/login",
-        username_field="_username",
-        landing_pg="https://www.housesimple.com/admin/home-visit-supplier/list",
-        password_field="_password",
-        login_btn="_submit",
+        username="xxxxxxxxxxxxxxxxxx",
+        password="xxxxxxxxxxxxxxxxx",
+        login_pg="xxxxxxxxxxxxxxxxx",
+        username_field="xxxxxxxxxxxxxxxxxxx",
+        landing_pg="xxxxxxxxxxxxxxxxxxxxxxx",
+        password_field="xxxxxxxxxxxxxxxxxxxxxx",
+        login_btn="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         browser=browser
     )
 
