@@ -1,5 +1,5 @@
 import tkinter as tk
-
+import configparser
 from selenium import webdriver
 import re
 import ast
@@ -73,27 +73,35 @@ class KAJob:
         self.email = email
 
 
+def find_folders(root_folder, target_folder):
+    # print(root_folder, root_folder + '**' + os.sep)
+    # print(target_folder)
+
+    return [file
+            for file in glob.glob(pathname=root_folder + '**' + os.sep, recursive=True)
+            if fnmatch.fnmatch(file, '*' + target_folder + '*')]
+
+
 def set_colours(base_colour):
     """
-    Returns a dict of colours {name(str):value(str)} either brighter or darker than base_colour for use in a gui
-    The dict entries
-    :param base_colour: string representing hex number "#xxxxxx"
+    Returns a dict of colours {name(str): value(str)} either brighter or darker than base_colour for use in a gui
+     :param base_colour: string representing hex number "#xxxxxx"
     :return: dict of colour options as strings "#xxxxxx"
     """
 
     colour_set = {
-        "bg": 0,
-        "text": 0x797979,
+        "bg"                  : 0,
+        "text"                : 0x797979,
 
-        "checkbox_text": 0x797979,
-        "checkbox_bold_text": 0xa9a9a9,
-        "checkbox_bg": 0x272727,
+        "checkbox_text"       : 0x797979,
+        "checkbox_bold_text"  : 0xa9a9a9,
+        "checkbox_bg"         : 0x272727,
 
-        "input_text": -0x3e3e3e,
-        "input_bg": 0x797979,
+        "input_text"          : -0x3e3e3e,
+        "input_bg"            : 0x797979,
 
-        "btn_text": 0x797979,
-        "btn_bg": -0x242424,
+        "btn_text"            : 0x797979,
+        "btn_bg"              : -0x242424,
         "btn_activebackground": -0x3e3e3e
     }
     base_colour = int(base_colour.strip("#"), 16)
@@ -103,13 +111,27 @@ def set_colours(base_colour):
     return colours
 
 
-def find_folders(root_folder, target_folder):
-    # print(root_folder, root_folder + '**' + os.sep)
-    # print(target_folder)
-
-    return [file
-            for file in glob.glob(pathname=root_folder + '**' + os.sep, recursive=True)
-            if fnmatch.fnmatch(file, '*' + target_folder + '*')]
+def find_drive_folders(search_drive='D800', file_types=('jpg', 'nef')):
+    """
+    walks through logical drive or path that partially matches search_drive and returns all folders
+    containing file_types
+    :param search_drive: string
+    :param file_types: tuple
+    :return: folder_paths a list of folders containing files of type(s) file_types
+    """
+    folder_paths = []
+    drives = ['{}:'.format(d) for d in string.ascii_uppercase if os.path.exists('{}:'.format(d))]
+    for drive in drives:
+        cam_drive = win32api.GetVolumeInformation(str(Path(drive + '/')))
+        if search_drive in cam_drive[0]:  # cam_drive[0] is name of drive
+            for root, dirs, files in os.walk(drive):
+                folder_paths += (root for file in files if
+                                 root not in folder_paths and
+                                 'RECYCLE' not in root and
+                                 file[-3:].lower() in file_types)
+            break
+    print(folder_paths)
+    return folder_paths
 
 
 def rgba_to_hex(rgba):
@@ -127,7 +149,6 @@ def logon(username, password, login_pg, landing_pg, username_field, password_fie
     login_btn (obj) : submit form link
     brwsr (selenium obj) : browser session probably put that in here
     """""
-
     # Navigate to the application home page
     browser.get(login_pg)
 
@@ -185,14 +206,16 @@ def hs_open_jobs_list(gui):
     chrome_driver_path = "C:\Python36\selenium\webdriver\chrome\chromedriver.exe"
     browser = webdriver.Chrome(chrome_driver_path)
     gui.destroy()
+    config = configparser.ConfigParser()
+    config = config.read('PyWEB.ini')
     logon(
-        username="steve@orella.co.uk",
-        password="Floop001",
-        login_pg="https://www.housesimple.com/login",
-        username_field="_username",
-        landing_pg="https://www.housesimple.com/admin/home-visit-supplier/list",
-        password_field="_password",
-        login_btn="_submit",
+        username=config['HS']['username'],
+        password=config['HS']['password'],
+        login_pg=config['HS']['login_pg'],
+        username_field=config['HS']['username_field'],
+        landing_pg=config['HS']['landing_pg'],
+        password_field=config['HS']['password_field'],
+        login_btn=config['HS']['login_btn'],
         browser=browser
     )
 
@@ -237,15 +260,16 @@ def ka_open_jobs_list(gui):
     chrome_driver_path = "C:\Python36\selenium\webdriver\chrome\chromedriver.exe"
     browser = webdriver.Chrome(chrome_driver_path)
     gui.destroy()
+    config = configparser.ConfigParser()
+    config.read('PyWEB.ini')
     logon(
-        username="steve@orella.co.uk",
-        password='Floop001',
-        login_pg="https://www.keyagent-portal.co.uk",
-        landing_pg="https://www.keyagent-portal.co.uk/Site/Dea/"
-                   "home.aspx?Dea=272ca14b-8535-453f-bf30-10e5c0318651&TAB=MYHOME",
-        username_field="ctl00$main$HipPlatformLogin$Username",
-        password_field="ctl00$main$HipPlatformLogin$Password",
-        login_btn="ctl00$main$HipPlatformLogin$Button1",
+        username=config['KA']['username'],
+        password=config['KA']['password'],
+        login_pg=config['KA']['login_pg'],
+        username_field=config['KA']['username_field'],
+        landing_pg=config['KA']['landing_pg'],
+        password_field=config['KA']['password_field'],
+        login_btn=config['KA']['login_btn'],
         browser=browser
     )
 
@@ -309,6 +333,7 @@ def get_ka_notes(browser, tag="ctl00$main$textBoxCaseNotes"):
     return notes_dict
 
 
+# noinspection Annotator
 def read_ka_job_page(browser):
     job = KAJob
 
@@ -318,6 +343,7 @@ def read_ka_job_page(browser):
     #  get address & postcode
     raw_text = browser.find_element_by_id("ctl00_text_LabelAddress").text
     # 1st group captures address. 2nd group captures postcode
+    # noinspection Annotator
     matches = re.findall(
         r"(.*?)([A-PR-UWYZ0-9][A-HK-Y0-9][AEHMNPRTVXY0-9]{0,1}[ABEHMNPRVWXY0-9]{0,1} {1,2}[0-9][ABD-HJLN-UW-Z]{2}|GIR 0AA)",
         raw_text)[0]
