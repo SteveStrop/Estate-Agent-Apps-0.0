@@ -7,8 +7,10 @@ from datetime import datetime
 import os
 import glob
 import fnmatch
+import win32api
 import sys
 import string
+from pathlib import Path
 
 
 # create class to store the Job details
@@ -130,7 +132,6 @@ def find_drive_folders(search_drive='D800', file_types=('jpg', 'nef')):
                                  'RECYCLE' not in root and
                                  file[-3:].lower() in file_types)
             break
-    print(folder_paths)
     return folder_paths
 
 
@@ -166,6 +167,8 @@ def logon(username, password, login_pg, landing_pg, username_field, password_fie
     # navigate to the home visits list page
     browser.get(landing_pg)
 
+    return browser
+
 
 def splash_screen(text, width, height, x, y, ms):
     """
@@ -200,28 +203,6 @@ def click_hip_link(jobs_list, hip_to_click, links):
     return False
 
 
-def hs_open_jobs_list(gui):
-    # splash_screen(text="Please wait",width=500, height=200, x=500, y=500, ms=5000)
-
-    chrome_driver_path = "C:\Python36\selenium\webdriver\chrome\chromedriver.exe"
-    browser = webdriver.Chrome(chrome_driver_path)
-    gui.destroy()
-    config = configparser.ConfigParser()
-    config = config.read('PyWEB.ini')
-    logon(
-        username=config['HS']['username'],
-        password=config['HS']['password'],
-        login_pg=config['HS']['login_pg'],
-        username_field=config['HS']['username_field'],
-        landing_pg=config['HS']['landing_pg'],
-        password_field=config['HS']['password_field'],
-        login_btn=config['HS']['login_btn'],
-        browser=browser
-    )
-
-    return browser
-
-
 #     )
 # def create_HSjobsclass()
 #     # get list of latest 25 jobs as displayed on
@@ -251,25 +232,20 @@ def hs_open_jobs_list(gui):
 #         ))
 #         row_index += 1
 
-def ka_open_jobs_list(gui):
-    # define constants
-    floorplan_bg_color = '#9fd69f'  # colour used to show floor plan required
-    photo_bg_color = '#9fd69f'  # colour used to show photos required
-
-    # create a new Chrome session
+def open_jobs_list(gui, agent):
     chrome_driver_path = "C:\Python36\selenium\webdriver\chrome\chromedriver.exe"
     browser = webdriver.Chrome(chrome_driver_path)
     gui.destroy()
     config = configparser.ConfigParser()
     config.read('PyWEB.ini')
     logon(
-        username=config['KA']['username'],
-        password=config['KA']['password'],
-        login_pg=config['KA']['login_pg'],
-        username_field=config['KA']['username_field'],
-        landing_pg=config['KA']['landing_pg'],
-        password_field=config['KA']['password_field'],
-        login_btn=config['KA']['login_btn'],
+        username=config[agent]['username'],
+        password=config[agent]['password'],
+        login_pg=config[agent]['login_pg'],
+        username_field=config[agent]['username_field'],
+        landing_pg=config[agent]['landing_pg'],
+        password_field=config[agent]['password_field'],
+        login_btn=config[agent]['login_btn'],
         browser=browser
     )
 

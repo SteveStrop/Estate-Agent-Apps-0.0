@@ -19,8 +19,7 @@ def ok_clicked():
     loading_frame.grid()
     root.update()
 
-    open_function = getattr(al, "{}_open_jobs_list".format(selected_agent.get()))  # fails with default arg added???
-    browser = open_function(root)
+    browser = al.open_jobs_list(root, selected_agent.get())
 
     while 1:
         time.sleep(1)
@@ -47,18 +46,18 @@ master_frame = ttk.Frame(master=root)
 selected_agent = tk.StringVar()  # selected holds radio button currently selected
 
 # set default Radiobutton
-selected_agent.set("ka")
+selected_agent.set("KA")
 
 radio_hs = ttk.Radiobutton(master_frame,
                            width=15,
                            text="House Simple",
-                           value="hs",
+                           value="HS",
                            variable=selected_agent
                            )
 radio_ka = ttk.Radiobutton(master_frame,
                            width=15,
                            text="KeyAGENT",
-                           value="ka",
+                           value="KA",
                            variable=selected_agent
                            )
 btn_ok = ttk.Button(master_frame,
